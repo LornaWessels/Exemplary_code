@@ -1,0 +1,98 @@
+---
+title: "Template T-Test "
+output: html_document
+---
+
+
+
+Load necessary packages and set working directory --> Replace "Directory_of_Interest" by actual directory
+```{r }
+
+library("tidyverse")
+library("ggpubr")
+library("rstatix")
+library("ggplot2")
+
+setwd("C:/Users/MatWe/Directory_of_Interest")
+```
+
+
+Load data from a CSV file --> Replace file name by actual name
+Write the column names which are still part of the table into the vector "names"
+Remove first row 
+Transform the table into a data frame 
+Set
+```{r}
+TGCT.data <- read.csv("data.CSV", header = FALSE, sep = ";", dec = ".")
+names <- as.character(TGCT.data[1,])
+TGCT.data <- TGCT.data[-1,]
+TGCT.data <- as.data.frame(TGCT.data)
+
+colnames(TGCT.data) <- names
+```
+
+
+Separates the data by gene and write into new vector
+```{r }
+TGCT.endo <- TGCT.data %>% filter(gene == "endo")
+TGCT.CD44 <- TGCT.data %>% filter(gene == "CD44")
+```
+
+Filters data from vectors by type and saves dCT values in new vector
+Replaces decimal separator , with .  and saves results in new vector
+Transforms vectors to numeric
+Performs T-Test on numeric vectors
+
+```{r}
+tumor_endo_dCT <- TGCT.endo %>% filter(type == "tumor") %>% pull(dCT)
+normal_endo_dCT <- TGCT.endo %>% filter(type == "normal") %>% pull(dCT)
+
+tumor_CD44_dCT <- TGCT.CD44 %>% filter(type == "tumor") %>% pull(dCT)
+normal_CD44_dCT <- TGCT.CD44 %>% filter(type == "normal") %>% pull(dCT)
+
+
+
+tumor_endo_dCT <- gsub(",", ".", tumor_endo_dCT)
+normal_endo_dCT <- gsub(",", ".", normal_endo_dCT)
+
+tumor_CD44_dCT <- gsub(",", ".", tumor_CD44_dCT)
+normal_CD44_dCT <- gsub(",", ".", normal_CD44_dCT)
+
+
+tendo_dCT <- as.numeric(tumor_endo_dCT)
+nendo_dCT <- as.numeric(normal_endo_dCT)
+
+tCD44_dCT <- as.numeric(tumor_CD44_dCT)
+nCD44_dCT <- as.numeric(normal_CD44_dCT)
+
+
+res_endo <- t.test(tendo_dCT, nendo_dCT)
+res_endo
+
+res_CD44 <- t.test(tCD44_dCT, nCD44_dCT)
+res_CD44
+
+```
+
+
+
+```{r}
+
+dCT_endo <- c(tendo_dCT, nendo_dCT)
+
+test <- c(test, rep("normal", 4))
+type <- c("tumor", "tumor", "tumor", "tumor", "tumor", "tumor", "normal", "normal")
+bp.endo <- data.frame(dCT_endo, type)
+
+p.endo <- ggplot(bp.endo, aes(x=type, y=dCT_endo, fill=type)) + geom_boxplot()
+ggsave("TGCTtissue_endo.png", plot = p.endo)
+
+dCT_CD44 <- c(tCD44_dCT, nCD44_dCT)
+bp.CD44 <- data.frame(dCT_CD44, type)
+
+p.CD44 <- ggplot(bp.CD44, aes(x=type, y=dCT_CD44, fill=type)) + geom_boxplot()
+ggsave("TGCTtissue_CD44.png", plot = p.CD44)
+
+
+```
+
