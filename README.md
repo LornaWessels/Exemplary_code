@@ -20,7 +20,7 @@ methylation distribution, per chromsome depth of coverage information.
 
 Basic statistics of qPCR data 
 
-* 17-06-20-GBYtissue_ttest.Rmd:
+* 17_06_GBYtissue_ttest.Rmd:
 
 In this file a Welch Two Sample T-Test is performed on dCT values from TaqMan Assay. 
 Therefore, data is loaded from a CSV file and transformed into a data frame. 
