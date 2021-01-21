@@ -18,7 +18,7 @@ methylation distribution, per chromsome depth of coverage information.
 
 
 
-Basic statistics of qPCR data 
+(Very) basic statistics of qPCR data 
 
 * 17_06_GBYtissue_ttest.Rmd:
 
