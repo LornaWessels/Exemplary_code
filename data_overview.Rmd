@@ -1,0 +1,145 @@
+---
+title: "Data Overview"
+output: html_document
+---
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
+setwd("E:/Praktikum DKFZ/data/19/")
+library(ggplot2)
+library(plotly)
+sites <- readRDS("sites.RDS")
+coverage <- readRDS("coverages.RDS")
+
+methylated <- coverage[ , , 1]
+unmethylated <- coverage[ , , 2]
+coversum <- methylated + unmethylated
+
+methylated[methylated > 0] <- 1
+unmethylated[unmethylated > 0] <- 2
+combined <- methylated + unmethylated
+
+combined[combined %in% 0] <- NA
+combined[combined %in% 2] <- 0
+combined[combined %in% 3] <- 0.5
+combined <- t(combined)
+
+coversum_logic <- apply(coversum, 1, function(x) x > 0)
+sample_coverage <- colSums(coversum_logic / nrow(coversum_logic))
+
+
+# Create data frame dfcov; gather information about coverage of CpG sites
+
+dfcov <- data.frame(names(sample_coverage), sample_coverage)
+colnames(dfcov) <- c("Samples", "Coverage")
+rownames(dfcov) <- c(1:length(names(sample_coverage)))
+dfcov <- dfcov[order(dfcov$Coverage), ]
+cha <- as.character(dfcov$Samples)
+dfcov$Samples <- factor(cha, levels = cha)
+
+Total <- as.numeric(colSums(coversum_logic))
+Numbers <- c(length(names(sample_coverage)):1)
+dfsc <- cbind(dfcov, Total, Numbers)
+dfsc <- dfsc[order(dfsc$Total), ]
+cha <- as.character(dfsc$Samples)
+dfsc$Samples <- factor(cha, levels = cha)
+
+# Create matrix of beta value for each CpG site
+
+colsums.unmeth <- colSums(combined == 0, na.rm = TRUE)
+colsums.meth <- colSums(combined == 1, na.rm = TRUE)
+colsums.part <- colSums(combined == 0.5, na.rm = TRUE)
+
+
+# Create data frame dfmeth; gather total numbers of unmethylated, partially methylated and methylated sites
+
+dfmeth <- data.frame(names(colsums.meth), colsums.unmeth, colsums.meth, colsums.part)
+colnames(dfmeth) <- c("Samples", "Unmethylated", "Methylated", "Partially")
+rownames(dfmeth) <- c(1:(ncol(combined)))
+
+
+# transform dfmeth into long format
+
+stop_val <- ncol(combined) + 1
+status <- c("Unmethylated", "Methylated", "Partially")
+samplevec <- as.character(dfmeth[ , 1])
+statvec <- c()
+i <- 1
+repeat {
+  statvec <- c(statvec, as.numeric(dfmeth[i, 2:4]))
+  i = i+1
+  if (i == stop_val){
+    break
+  }
+}
+sample.vec <- NULL
+i <- 1
+repeat {
+  sample.vec <- c(sample.vec, (rep(samplevec[i], 3)))
+  i = i+1
+  if (i == stop_val){
+    break
+  }
+}
+statusvec <- c(rep(status, ncol(combined)))
+dfstat <- data.frame(sample.vec, statvec, statusvec)
+colnames(dfstat) <- c("Samples", "Count", "Status")
+
+
+```
+
+
+
+# **Coverage**
+
+## Percentage of Covered CpGs
+
+```{r coverage_percentage, echo=FALSE, message=FALSE}
+coverage_bp1 <- ggplot(dfcov) + aes_string(x = "Samples", y = "Coverage") + 
+geom_bar(fill = "lightsteelblue", stat = "identity", size = 6) + coord_flip() + 
+scale_y_continuous(expand = c(0,0)) + theme_bw() + labs(title = "Coverage Percentage") + geom_hline(yintercept = mean(dfcov$Coverage), color = "darkred", size = 1.5)
+coverage_bp1
+
+
+ggsave("Coverage_percentage.png", plot = coverage_bp1, device = "png", path = NULL,
+  scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+                 dpi = 300, limitsize = TRUE)
+
+```
+
+## No. of CpGs covered
+
+```{r coverage_per_sample, echo=FALSE, message=FALSE}
+coverage_bp2 <- ggplot(dfsc) + aes_string(x = "Numbers", y = "Total") + geom_bar(fill = "lightsteelblue", stat = "identity", size = 6) + 
+scale_y_log10(expand = c(0,0), breaks = 100^(0:ceiling(log10(max(Total))))) + scale_x_continuous(expand = c(0,0), breaks = seq(0,25,1)) + theme_bw() + labs(x = "Number of Samples", y = "Number of Covered CpGs", title = "Coverage per Number of Samples") + geom_hline(yintercept = mean(dfsc$Total), color = "darkred", size = 1.5)
+coverage_bp2
+
+ggsave("Coverage_per_samples.png", plot = coverage_bp2, device = "png", path = NULL,
+  scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+                 dpi = 300, limitsize = TRUE)    
+
+```
+# **Methylation Profiles**
+
+```{r methylation_profile_normed, echo=FALSE, message=FALSE}
+methprofile_n <- ggplot(dfstat) + aes_string(x = "Samples", y = "Count", fill = "Status") + 
+  geom_bar(stat = "identity", position = "fill") + coord_flip() +
+  scale_y_continuous(expand = c(0,0), breaks = seq(0,1,0.2)) + theme_bw() + scale_fill_manual(values = c("lightsteelblue", "indianred2", "snow3")) + labs(x = NULL, y = "Fraction of CpGs", title = "Normalized Methylation Profiles")
+methprofile_n_plotly <- ggplotly(methprofile_n)
+methprofile_n_plotly
+
+ggsave("Methylationprofile_normed.png", plot = methprofile_n, device = "png", path = NULL,
+  scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+                 dpi = 300, limitsize = TRUE)
+```
+
+```{r methylation_profile_absolute, echo=FALSE, message=FALSE}
+methprofile_a <- ggplot(dfstat) + aes_string(x = "Samples", y = "Count", fill = "Status") + 
+geom_bar(stat = "identity") + coord_flip() +
+scale_y_continuous(expand = c(0,0)) + theme_bw() + scale_fill_manual(values = c("lightsteelblue", "indianred2", "snow3")) + labs(x = NULL, y = "Number of CpGs", title = "Absolute Methylation Profiles") + theme(legend.position = c(0.98, 0.98), legend.justification = c(1,1))
+methprofile_a_plotly <- ggplotly(methprofile_a)
+methprofile_a_plotly
+
+ggsave("Methylationprofile_absolute.png", plot = methprofile_a, device = "png", path = NULL,
+  scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+                 dpi = 300, limitsize = TRUE)
+``` 

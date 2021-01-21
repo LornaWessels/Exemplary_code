@@ -1,0 +1,341 @@
+---
+title: "Summary of Experimental Data"
+output: html_document
+---
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
+setwd("V:/Computational/Projects/2018-08-scWGBS/data")
+library(plotly)
+library(ggplot2)
+library(data.table)
+require(scales)
+
+
+#Create data.table object listing bamstat_data of all samples
+
+bamstat_files <- list.files(pattern = "*bamstat.tsv")
+bamstat_data  = lapply(bamstat_files, data.table::fread)
+names(bamstat_data) = bamstat_files
+bamstat_data = data.table::rbindlist(l = bamstat_data, idcol = 'sample')
+bamstat_data[,1] = NULL
+bamstat_data[, usable_PE_reads := usable_reads_F3852_f3/2]
+bamstat_data[, discarded_PE_reads := total_PE_reads - (duplicate_PE_reads + usable_PE_reads)] 
+bamstat_data[,4] = NULL
+
+reads <- c(colSums(bamstat_data[,3:5])/colSums(bamstat_data[,2]))
+status <- c("Duplicate", "Usable", "Discarded")
+
+bamstat_df <- data.frame(status, reads)
+
+duplicate_percent <- bamstat_data[,3]/bamstat_data[,2]
+usable_percent <- bamstat_data[,4]/bamstat_data[,2]
+discarded_percent <- bamstat_data[,5]/bamstat_data[,2]
+
+#Create data frame containing percentage of respective read status
+
+bamstat_percent <- data.frame(bamstat_data[,1], duplicate_percent, usable_percent, discarded_percent)
+
+
+
+stop_val <- nrow(bamstat_percent) + 1
+samplevec <- as.character(bamstat_percent[ , 1])
+
+statvec <- c()
+i <- 1
+
+repeat {
+  statvec <- c(statvec, as.numeric(bamstat_percent[i, 2:4]))
+  i = i+1
+  if (i == stop_val){
+    break
+  }
+}
+
+
+sample.vec <- NULL
+
+i <- 1
+
+repeat {
+  sample.vec <- c(sample.vec, (rep(samplevec[i], 3)))
+  i = i+1
+  if (i == stop_val){
+    break
+  }
+}
+statusvec <- c(rep(status, nrow(bamstat_percent)))
+
+#Create data frame
+
+reads_per_sample <- data.frame(sample.vec, statvec, statusvec)
+colnames(reads_per_sample) <- c("Samples", "Percent", "Status")
+
+#Create data.table object listing chr_data of all sample
+
+chr_files <- list.files(pattern = "*chr.tsv")
+chr_data  = lapply(chr_files, data.table::fread)
+names(chr_data) = chr_files
+chr_data = data.table::rbindlist(l = chr_data, idcol = 'sample')
+chr_data <- data.table::dcast(data = chr_data, sample ~ V2, value.var= 'V1')
+drop.cols <- grep("_", colnames(chr_data))
+chr_data[, (drop.cols) := NULL]
+
+stop_val2 <- nrow(chr_data) + 1
+CpGs <- c()
+i <- 1
+
+repeat {
+  CpGs <- c(CpGs, as.numeric(chr_data[i, -1]))
+  i = i+1
+  if (i == stop_val2){
+    break
+  }
+}
+
+
+# Create data frame no. of CpGs per Chromosome per sample 
+
+chr <- c(rep(c(names(chr_data[, -1])), nrow(chr_data)))
+chr_df <- data.frame(chr, CpGs)
+chr_df$chr <- factor(chr_df$chr, levels = c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chrM", "chrX", "chrY" ))
+chr_df <- chr_df[order(chr_df$chr),]
+
+
+stop_val3 <- nrow(chr_data) + 1
+samplevec3 <- as.character(chr_data$sample)
+
+statvec3 <- c()
+i <- 1
+
+repeat {
+  statvec3 <- c(statvec3, as.numeric(chr_data[i, -1]))
+  i = i+1
+  if (i == stop_val3){
+    break
+  }
+}
+
+
+sample.vec3 <- NULL
+
+i <- 1
+
+repeat {
+  sample.vec3 <- c(sample.vec3, (rep(samplevec3[i], 22)))
+  i = i+1
+  if (i == stop_val3){
+    break
+  }
+}
+
+chrvec3 <- c(colnames(chr_data[,-1]))
+CpGs_per_sample <- data.frame(sample.vec3, statvec3, chrvec3)
+colnames(CpGs_per_sample) <- c("Samples", "CpGs", "Chromosome")
+
+
+#Create data.table object listing stat_data of all samples
+
+stats_files <- list.files(pattern = "*stats.tsv")
+stats_data  = lapply(stats_files, data.table::fread)
+names(stats_data) = stats_files
+stats_data = data.table::rbindlist(l = stats_data, idcol = 'sample')
+colnames(stats_data) <- c("Sample", "Chromosome", "CpGs", "Mean_depth", "Median_depth")
+stats_mean <- data.table::dcast(data = stats_data, Sample ~ Chromosome, value.var= 'Mean_depth')
+stats_median <- data.table::dcast(data = stats_data, Sample ~ Chromosome, value.var = 'Median_depth')
+dropmean <- grep("_", colnames(stats_mean))
+stats_mean[, (dropmean) := NULL]
+stats_means <- stats_mean[,-1]
+dropmedian <- grep("_", colnames(stats_median))
+stats_median[, (dropmedian) := NULL]
+
+means_chr <- colMeans(stats_mean[,-1], na.rm = TRUE)
+means_samp <- rowMeans(stats_means, na.rm = TRUE)
+medians_chr <- apply(stats_median[,-1], 2, median, na.rm = TRUE)
+medians_samp <- apply(stats_median[,-1], 1, median, na.rm = TRUE)
+mean_mxy <- means_chr[c(20,21,22)]
+median_mxy <- medians_chr[c(20,21,22)]
+means_chr <- means_chr[-c(20,21,22)]
+medians_chr <- medians_chr[-c(20,21,22)]
+names(means_chr) <- c(1,10,11,12,13,14,15,16,17,18,19,2,3,4,5,6,7,8,9)
+names(medians_chr) <- c(1,10,11,12,13,14,15,16,17,18,19,2,3,4,5,6,7,8,9)
+means_chr <- means_chr[order(as.numeric(names(means_chr)))]
+medians_chr <- medians_chr[order(as.numeric(names(medians_chr)))]
+names(mean_mxy) <- c("M", "X", "Y")
+names(median_mxy) <- c("M", "X", "Y")
+means_chr <- c(means_chr, mean_mxy)
+medians_chr <- c(medians_chr, median_mxy)
+chromo = c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chrM", "chrX", "chrY" )
+
+
+mean_df <- data.frame(chromo, means_chr)
+median_df <- data.frame(chromo, medians_chr)
+levels(mean_df$chromo) <- chromo
+levels(median_df$chromo) <- chromo
+
+stop_val4 <- nrow(stats_mean) + 1
+samplevec4 <- as.character(stats_mean$Sample)
+
+statvec4 <- c()
+i <- 1
+
+repeat {
+  statvec4 <- c(statvec4, as.numeric(stats_mean[i, -1]))
+  i = i+1
+  if (i == stop_val4){
+    break
+  }
+}
+
+
+sample.vec4 <- NULL
+
+i <- 1
+
+repeat {
+  sample.vec4 <- c(sample.vec4, (rep(samplevec4[i], (ncol(stats_mean)-1))))
+  i = i+1
+  if (i == stop_val4){
+    break
+  }
+}
+
+statvec4[statvec4 > 10] <- NA
+
+chrvec4 <- c(colnames(stats_mean[,-1]))
+means_per_sample <- data.frame(sample.vec4, statvec4, chrvec4)
+colnames(means_per_sample) <- c("Samples", "Means", "Chromosome")
+
+
+statvec5 <- c()
+i <- 1
+
+repeat {
+  statvec5 <- c(statvec5, as.numeric(stats_median[i, -1]))
+  i = i+1
+  if (i == stop_val4){
+    break
+  }
+}
+
+
+statvec5[statvec5 > 10] <- NA
+
+
+medians_per_sample <- data.frame(sample.vec4, statvec5, chrvec4)
+colnames(medians_per_sample) <- c("Samples", "Medians", "Chromosome")
+
+samplemeans <- data.frame(samplevec4, means_samp)
+colnames(samplemeans) <- c("Samples", "Means")
+samplemedians <- data.frame(samplevec4, medians_samp)
+colnames(samplemedians) <- c("Samples", "Medians")
+```
+
+
+Create Plots
+
+## **Read status**
+
+```{r read_status, echo=FALSE, warning=FALSE, message=FALSE}
+reads_n <- ggplot(reads_per_sample) + aes_string(x = "Samples", y = "Percent", fill = "Status") + 
+  geom_bar(stat = "identity", position = "fill") + coord_flip() +
+  scale_y_continuous(expand = c(0,0), breaks = seq(0,1,0.2)) + theme_bw() + scale_fill_manual(values = c("indianred2", "lightsteelblue", "goldenrod1")) + labs(x = NULL, y = "Fraction of Reads", title = "Read Profiles of Samples")
+reads_n
+
+
+ggsave("reads_per_samples.png", plot = reads_n, device = "png", path = NULL,
+       scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+       dpi = 300, limitsize = TRUE)
+
+```
+
+## **CpGs-Content per Chromosome**
+
+```{r cpg_per_chr, echo=FALSE, warning=FALSE, message=FALSE}
+chr_plot <- ggplot(chr_df) + aes_string(x = "chr", y = "CpGs", fill = "chr") + 
+  geom_bar(stat = "identity", show.legend = FALSE) +  scale_y_continuous(expand = c(0.05,0)) + theme_bw() + scale_fill_discrete(name = "Chromosomes") + 
+  labs(x = "Chromosomes", y = "CpG Content", title = "No. of CpGs per Chromosome") + theme(axis.text.x = element_text(angle = 90))
+chr_plot
+
+ggsave("cpg_per_chr.png", plot = chr_plot, device = "png", path = NULL,
+       scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+       dpi = 300, limitsize = TRUE)
+
+chr_n <- ggplot(CpGs_per_sample) + aes_string(x = "Samples", y = "CpGs", fill = "Chromosome") + 
+  geom_bar(stat = "identity") + coord_flip() +
+  scale_y_continuous(expand = c(0,0)) + theme_bw() + labs(x = NULL, y = "Number of CpGs", title = "CpG-Content per Sample")
+chr_n
+
+ggsave("reads_per_samples.png", plot = reads_n, device = "png", path = NULL,
+       scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+       dpi = 300, limitsize = TRUE)
+
+
+```
+
+## **Mean Depth per CpGs site**
+
+```{r mean_depth, echo=FALSE, warning=FALSE, message=FALSE}
+mean_plot <- ggplot(mean_df) + aes_string(x = "chromo", y = "means_chr", fill = "chromo", size = 2, color = "chromo") + geom_point(stat = "identity", show.legend = FALSE) + theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90)) + labs(title = "Mean Depth per Chromosome", x = "Chromosomes", y = "Mean Depth") + 
+  scale_fill_discrete(name = "Chromosomes")
+mean_plot
+
+ggsave("mean_per_chr.png", plot = mean_plot, device = "png", path = NULL,
+       scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+       dpi = 300, limitsize = TRUE)
+
+mean_s <- ggplot(samplemeans) + aes_string(x = "Samples", y = "Means", fill = "Samples", color = "Samples") + 
+  geom_point(stat = "identity") + coord_flip() +
+  scale_y_continuous(expand = c(0,0)) + theme_bw() + labs(x = NULL, y = "Mean Depth", title = "Mean Depth per Sample") + theme(legend.position = "none")
+mean_s_plotly <- ggplotly(mean_s)
+mean_s_plotly
+
+ggsave("means_per_sample.png", plot = mean_s, device = "png", path = NULL,
+       scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+       dpi = 300, limitsize = TRUE)
+
+mean_n <- ggplot(means_per_sample) + aes_string(x = "Samples", y = "Means", fill = "Chromosome", color = "Chromosome") + 
+  geom_point(stat = "identity") + coord_flip() +
+  scale_y_continuous(expand = c(0,0)) + theme_bw() + labs(x = NULL, y = "Mean Depth", title = "Mean Depth per Sample per Chromosome")
+mean_n_plotly <- ggplotly(mean_n)
+mean_n_plotly
+
+ggsave("means_per_sample_per_chromo.png", plot = mean_n, device = "png", path = NULL,
+       scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+       dpi = 300, limitsize = TRUE)
+
+```
+## **Median Depth per CpGs site**
+
+```{r median_depth, echo=FALSE, warning=FALSE, message=FALSE}
+
+median_plot <- ggplot(median_df) + aes_string(x = "chromo", y = "medians_chr", fill = "chromo", size = 2, color = "chromo") + geom_point(stat = "identity", show.legend = FALSE) + theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90)) + labs(title = "Median Depth per Chromosome", x = "Chromosomes", y = "Median Depth") + 
+  scale_fill_discrete(name = "Chromosomes")
+median_plot
+
+
+ggsave("median_per_chr.png", plot = median_plot, device = "png", path = NULL,
+       scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+       dpi = 300, limitsize = TRUE)
+
+median_s <- ggplot(samplemedians) + aes_string(x = "Samples", y = "Medians", fill = "Samples", color = "Samples") + 
+  geom_point(stat = "identity") + coord_flip() +
+  scale_y_continuous() + theme_bw() + labs(x = NULL, y = "Median Depth", title = "Median Depth per Sample") + theme(legend.position = "none")
+
+median_s_plotly <- ggplotly(median_s)
+median_s_plotly
+
+ggsave("medians_per_sample.png", plot = median_s, device = "png", path = NULL,
+       scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+       dpi = 300, limitsize = TRUE)
+
+median_n <- ggplot(medians_per_sample) + aes_string(x = "Samples", y = "Medians", fill = "Chromosome", color = "Chromosome") + 
+  geom_point(stat = "identity") + coord_flip() +
+  scale_y_continuous(expand = c(0,0)) + theme_bw() + labs(x = NULL, y = "Median Depth", title = "Median Depth per Sample per Chromosome")
+median_plotly <- ggplotly(median_n)
+median_plotly
+
+ggsave("medians_per_sample_per_chromo.png", plot = median_n, device = "png", path = NULL,
+       scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+       dpi = 300, limitsize = TRUE)
+```

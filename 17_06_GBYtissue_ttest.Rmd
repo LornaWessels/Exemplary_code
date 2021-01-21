@@ -1,0 +1,107 @@
+---
+title: "T-Test TGCT data 17.06.2020"
+output: html_document
+---
+
+```{r }
+library("tidyverse")
+library("ggpubr")
+library("rstatix")
+library("ggplot2")
+
+setwd("C:/Users/MatWe/Desktop/Analyse_Repro")
+```
+#Load data from CSV file
+
+#Transform table into data frame
+```{r, echo=TRUE}
+TGCT.data <- read.csv("17_06_GBYtissue.CSV", header = FALSE, sep = ";", dec = ".")
+TGCT.data <- TGCT.data[-1,]
+TGCT.data <- as.data.frame(TGCT.data)
+
+colnames(TGCT.data) <- c("sample", "dCT", "gene", "type")
+```
+
+#Separate data by gene and write into new vector 
+
+```{r, echo=TRUE}
+TGCT.endo <- TGCT.data %>% filter(gene == "endo")
+TGCT.miR371 <- TGCT.data %>% filter(gene == "miR371")
+TGCT.miR373 <- TGCT.data %>% filter(gene == "miR373")
+```
+#Filter data from vectors by type and save dCT values in new vector
+#Performs T-Test on numeric vectors
+```{r}
+tumor_endo_dCT <- TGCT.endo %>% filter(type == "tumor") %>% pull(dCT)
+normal_endo_dCT <- TGCT.endo %>% filter(type == "normal") %>% pull(dCT)
+
+tumor_miR371_dCT <- TGCT.miR371 %>% filter(type == "tumor") %>% pull(dCT)
+normal_miR371_dCT <- TGCT.miR371 %>% filter(type == "normal") %>% pull(dCT)
+
+tumor_miR373_dCT <- TGCT.miR373 %>% filter(type == "tumor") %>% pull(dCT)
+normal_miR373_dCT <- TGCT.miR373 %>% filter(type == "normal") %>% pull(dCT)
+
+```
+#Replace decimal separator , with .  and save results in new vector
+#Transform vector to numeric
+```{r, echo=TRUE}
+
+tumor_endo_dCT <- gsub(",", ".", tumor_endo_dCT)
+normal_endo_dCT <- gsub(",", ".", normal_endo_dCT)
+
+tumor_miR371_dCT <- gsub(",", ".", tumor_miR371_dCT)
+normal_miR371_dCT <- gsub(",", ".", normal_miR371_dCT)
+
+tumor_miR373_dCT <- gsub(",", ".", tumor_miR373_dCT)
+normal_miR373_dCT <- gsub(",", ".", normal_miR373_dCT)
+
+tendo_dCT <- as.numeric(tumor_endo_dCT)
+nendo_dCT <- as.numeric(normal_endo_dCT)
+
+tmiR371_dCT <- as.numeric(tumor_miR371_dCT)
+nmiR371_dCT <- as.numeric(normal_miR371_dCT)
+
+tmiR373_dCT <- as.numeric(tumor_miR373_dCT)
+nmiR373_dCT <- as.numeric(normal_miR373_dCT)
+
+```
+#Perform t-test on numeric vector
+```{r, echo=TRUE}
+
+
+res_endo <- t.test(tendo_dCT, nendo_dCT)
+res_endo
+
+res_miR371 <- t.test(tmiR371_dCT, nmiR371_dCT)
+res_miR371
+
+res_miR373 <- t.test(tmiR373_dCT, nmiR373_dCT)
+res_miR373
+```
+
+#Create plots and save as .png
+
+```{r}
+
+dCT_endo <- c(tendo_dCT, nendo_dCT)
+type <- c("tumor", "tumor", "tumor", "tumor", "normal", "normal")
+bp.endo <- data.frame(dCT_endo, type)
+
+p.endo <- ggplot(bp.endo, aes(x=type, y=dCT_endo, fill=type)) + geom_boxplot()
+ggsave("GBYtissue_endo.png", plot = p.endo)
+
+dCT_miR371 <- c(tmiR371_dCT, nmiR371_dCT)
+bp.miR371 <- data.frame(dCT_miR371, type)
+
+p.miR371 <- ggplot(bp.miR371, aes(x=type, y=dCT_miR371, fill=type)) + geom_boxplot()
+ggsave("GBYtissue_miR371.png", plot = p.miR371)
+
+dCT_miR373 <- c(tmiR373_dCT, nmiR373_dCT)
+bp.miR373 <- data.frame(dCT_miR373, type)
+
+p.miR373 <- ggplot(bp.miR373, aes(x=type, y=dCT_miR373, fill=type)) + geom_boxplot()
+ggsave("GBYtissue_miR373.png", plot = p.miR373)
+
+
+```
+
